@@ -1,0 +1,207 @@
+import { useState, startTransition } from "react"
+import { addPropertyControls, ControlType } from "framer"
+
+// Email Validation Function
+async function validateEmail(
+    email,
+    supabaseUrl,
+    supabaseKey,
+    setError,
+    setLoading,
+    setSuccess
+) {
+    try {
+        const response = await fetch(
+            `${supabaseUrl}/functions/v1/validate-email`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${supabaseKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email }),
+            }
+        )
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            setError(`API Error: ${errorText}`)
+            setLoading(false)
+            return
+        }
+
+        const data = await response.json()
+
+        if (data && data.allowed === true) {
+            setSuccess(true)
+            setError("")
+        } else {
+            setError("Email not found or not allowed")
+        }
+    } catch (e) {
+        setError(e.message || "Validation failed. Try again.")
+    } finally {
+        setLoading(false)
+    }
+}
+
+export default function EmailTest(props) {
+    const {
+        supabaseUrl,
+        supabaseKey,
+        placeholder,
+        buttonLabel,
+        loadingLabel,
+        buttonColor,
+        buttonTextColor,
+        buttonFont,
+    } = props
+
+    const [email, setEmail] = useState("")
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState("")
+    const [success, setSuccess] = useState(false)
+
+    function handleSubmit(e) {
+        e.preventDefault()
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+            setError("Valid email is required.")
+            return
+        }
+        setLoading(true)
+        setError("")
+        setSuccess(false)
+
+        startTransition(() => {
+            validateEmail(
+                email,
+                supabaseUrl,
+                supabaseKey,
+                setError,
+                setLoading,
+                setSuccess
+            )
+        })
+    }
+
+    return (
+        <form
+            style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                minWidth: 328,
+                maxWidth: 328,
+                minHeight: 32,
+                maxHeight: 32,
+            }}
+            onSubmit={handleSubmit}
+            autoComplete="off"
+        >
+            <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={placeholder}
+                style={{
+                    flex: 1,
+                    padding: "0 12px",
+                    borderRadius: 6,
+                    border: "1px solid #eee",
+                    fontSize: 14,
+                    minWidth: 0,
+                    height: 40,
+                    boxSizing: "border-box",
+                }}
+                required
+                autoComplete="off"
+            />
+            <button
+                type="submit"
+                disabled={loading}
+                style={{
+                    height: 35,
+                    padding: "6px 16px",
+                    borderRadius: 6,
+                    background: buttonColor,
+                    color: buttonTextColor,
+                    border: "none",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    transition: "background 0.2s, box-shadow 0.2s, color 0.2s",
+                    ...(buttonFont || {}),
+                }}
+            >
+                {loading ? loadingLabel : buttonLabel}
+            </button>
+            {(error || success) && (
+                <div
+                    style={{
+                        marginLeft: 12,
+                        fontSize: 14,
+                        color: error ? "#D32F2F" : "#388E3C",
+                        whiteSpace: "nowrap",
+                        minWidth: 0,
+                        maxWidth: 120,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {error ? error : "Success! Email validated."}
+                </div>
+            )}
+        </form>
+    )
+}
+
+addPropertyControls(EmailTest, {
+    supabaseUrl: {
+        type: ControlType.String,
+        title: "Supabase URL",
+        defaultValue: "https://xiucslgqxhnfgmcwlppq.supabase.co",
+    },
+    supabaseKey: {
+        type: ControlType.String,
+        title: "Supabase Key",
+        obscured: true,
+        defaultValue:
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpdWNzbGdxeGhuZmdtY3dscHBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDg4NDcsImV4cCI6MjA3MzUyNDg0N30.gj3yEB9_1_UXsFpG6VoGL03v2ImJCAweijG3HOHlcgQ",
+    },
+    placeholder: {
+        type: ControlType.String,
+        title: "Input Placeholder",
+        defaultValue: "Enter email",
+    },
+    buttonLabel: {
+        type: ControlType.String,
+        title: "Button Label",
+        defaultValue: "Verify",
+    },
+    loadingLabel: {
+        type: ControlType.String,
+        title: "Loading Label",
+        defaultValue: "Validating...",
+    },
+    buttonColor: {
+        type: ControlType.Color,
+        title: "Button Color",
+        defaultValue: "#007bff",
+    },
+    buttonTextColor: {
+        type: ControlType.Color,
+        title: "Button Text Color",
+        defaultValue: "#fff",
+    },
+    buttonFont: {
+        type: ControlType.Font,
+        title: "Button Text Font",
+        controls: "extended",
+        defaultFontType: "sans-serif",
+        defaultValue: {
+            variant: "Semibold",
+            fontSize: "14px",
+            letterSpacing: "-0.01em",
+            lineHeight: "1em",
+        },
+    },
+})

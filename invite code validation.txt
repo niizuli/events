@@ -1,0 +1,405 @@
+// Event invite code validation component
+import { useState, startTransition } from "react"
+import { addPropertyControls, ControlType } from "framer"
+
+// Main validation function
+async function validateInviteCode(
+    inviteCode,
+    supabaseUrl,
+    supabaseAnonKey,
+    setError,
+    setLoading,
+    setSuccess,
+    setEventName
+) {
+    try {
+        const response = await fetch(
+            `${supabaseUrl}/functions/v1/validate-invite-code`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${supabaseAnonKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ inviteCode }),
+            }
+        )
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            setError(`API Error: ${errorText}`)
+            setLoading(false)
+            return
+        }
+
+        const data = await response.json()
+
+        if (data.valid) {
+            setEventName(data.event?.name || "")
+            setSuccess(true)
+            setError("")
+        } else {
+            setError("Invalid invite code")
+        }
+    } catch (e) {
+        setError(e.message || "Validation failed. Try again.")
+    } finally {
+        setLoading(false)
+    }
+}
+
+/**
+ * Invite Code Validation
+ *
+ * @framerSupportedLayoutWidth any-prefer-fixed
+ * @framerSupportedLayoutHeight any-prefer-fixed
+ */
+export default function InviteCodeValidator(props) {
+    const {
+        supabaseUrl,
+        supabaseAnonKey,
+        inviteLabel,
+        submitLabel,
+        background,
+        textColor,
+        font,
+        borderRadius,
+        style,
+        theme = "light",
+        lightBackground = "#FFFFFF",
+        lightTextColor = "#000000",
+        darkBackground = "#181A1B",
+        darkTextColor = "#F5F5F5",
+    } = props
+
+    const [inviteCode, setInviteCode] = useState("")
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState("")
+    const [success, setSuccess] = useState(false)
+    const [eventName, setEventName] = useState("")
+    const [isHovering, setIsHovering] = useState(false)
+
+    function handleSubmit(e) {
+        e.preventDefault()
+        if (!inviteCode) {
+            setError("Invite code is required.")
+            return
+        }
+        setLoading(true)
+        setError("")
+        setSuccess(false)
+
+        startTransition(() => {
+            validateInviteCode(
+                inviteCode,
+                supabaseUrl,
+                supabaseAnonKey,
+                setError,
+                setLoading,
+                setSuccess,
+                setEventName
+            )
+        })
+    }
+
+    return (
+        <form
+            style={{
+                ...style,
+                background: theme === "dark" ? darkBackground : lightBackground,
+                color: theme === "dark" ? darkTextColor : lightTextColor,
+                borderRadius,
+                padding: 24,
+                minWidth: 320,
+                maxWidth: 400,
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+                ...font,
+                fontFamily: font?.fontFamily,
+            }}
+            onSubmit={handleSubmit}
+            autoComplete="off"
+        >
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label
+                    style={{ fontWeight: 500, fontFamily: font?.fontFamily }}
+                >
+                    {inviteLabel}
+                </label>
+                <input
+                    type="text"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    style={{
+                        padding: 10,
+                        borderRadius: 6,
+                        border: "1px solid #eee",
+                        fontSize: 16,
+                        fontFamily: font?.fontFamily,
+                    }}
+                    required
+                    autoComplete="off"
+                    placeholder="Enter invite code"
+                />
+            </div>
+
+            {/* Hover background image for button */}
+            <style>{`
+                .icv-hover-bg {
+                    position: absolute;
+                    inset: 0;
+                    z-index: 0;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                    background-size: cover;
+                    background-position: center;
+                    border-radius: 6px;
+                }
+                .icv-btn:hover .icv-hover-bg {
+                    opacity: 1;
+                }
+                .icv-btn:hover {
+                    color: #000 !important;
+                    -webkit-text-fill-color: #000 !important;
+                    text-shadow: none !important;
+                }
+            `}</style>
+
+            <button
+                type="submit"
+                disabled={loading}
+                className="icv-btn"
+                style={{
+                    marginTop: 8,
+                    padding: "12px 0",
+                    borderRadius: 6,
+                    background: theme === "dark" ? darkTextColor : textColor,
+                    color: theme === "dark" ? darkBackground : background,
+                    border: "none",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    transition: "background 0.2s, box-shadow 0.2s, color 0.2s",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    outline: "none",
+                    outlineOffset: 0,
+                    position: "relative",
+                    overflow: "hidden",
+                    ...props.buttonFont,
+                    fontFamily: props.buttonFont?.fontFamily,
+                }}
+                aria-label="Validate invite code"
+                onMouseEnter={(e) => {
+                    if (!loading) {
+                        setIsHovering(true)
+                        e.currentTarget.style.background =
+                            theme === "dark" ? darkTextColor : textColor
+                        e.currentTarget.style.color = "#000"
+                        e.currentTarget.style.boxShadow =
+                            "0 4px 16px rgba(0,87,255,0.12)"
+                        e.currentTarget.style.filter = "brightness(0.95)"
+                        const btnText =
+                            e.currentTarget.querySelector("span.icv-btn-text")
+                        if (btnText && btnText instanceof HTMLElement)
+                            btnText.style.color = "#000"
+                    }
+                }}
+                onMouseLeave={(e) => {
+                    if (!loading) {
+                        setIsHovering(false)
+                        e.currentTarget.style.background =
+                            theme === "dark" ? darkTextColor : textColor
+                        e.currentTarget.style.color =
+                            theme === "dark" ? darkBackground : background
+                        e.currentTarget.style.boxShadow =
+                            "0 2px 8px rgba(0,0,0,0.08)"
+                        e.currentTarget.style.filter = "none"
+                        const btnText =
+                            e.currentTarget.querySelector("span.icv-btn-text")
+                        if (btnText && btnText instanceof HTMLElement)
+                            btnText.style.color =
+                                theme === "dark" ? darkBackground : background
+                    }
+                }}
+            >
+                {/* Hover background image */}
+                {props.hoverBgImage && props.hoverBgImage.src && (
+                    <span
+                        className="icv-hover-bg"
+                        aria-hidden="true"
+                        style={{
+                            backgroundImage: `url(${props.hoverBgImage.src})`,
+                            borderRadius: 6,
+                        }}
+                    />
+                )}
+                {loading ? (
+                    <span
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            color: "#000",
+                        }}
+                    >
+                        <span
+                            style={{
+                                display: "inline-block",
+                                width: 18,
+                                height: 18,
+                                border: "2px solid #0057FF",
+                                borderTop: `2px solid ${theme === "dark" ? darkBackground : background}`,
+                                borderRadius: "50%",
+                                animation: "spin 0.8s linear infinite",
+                                marginRight: 8,
+                            }}
+                        />
+                        Validating...
+                    </span>
+                ) : (
+                    <span
+                        className="icv-btn-text"
+                        style={{
+                            color: isHovering
+                                ? "#000"
+                                : theme === "dark"
+                                  ? darkBackground
+                                  : background,
+                        }}
+                    >
+                        {isHovering
+                            ? props.hoverText || submitLabel
+                            : submitLabel}
+                    </span>
+                )}
+            </button>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
+
+            {error && (
+                <div style={{ color: "#D32F2F", fontSize: 14 }}>{error}</div>
+            )}
+            {success && (
+                <div style={{ color: "#388E3C", fontSize: 14 }}>
+                    Success! Event: {eventName}
+                </div>
+            )}
+        </form>
+    )
+}
+
+addPropertyControls(InviteCodeValidator, {
+    supabaseUrl: {
+        type: ControlType.String,
+        title: "Supabase URL",
+        defaultValue: "https://xiucslgqxhnfgmcwlppq.supabase.co",
+        placeholder: "https://...supabase.co",
+    },
+    supabaseAnonKey: {
+        type: ControlType.String,
+        title: "Supabase Anon Key",
+        defaultValue:
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpdWNzbGdxeGhuZmdtY3dscHBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDg4NDcsImV4cCI6MjA3MzUyNDg0N30.gj3yEB9_1_UXsFpG6VoGL03v2ImJCAweijG3HOHlcgQ",
+        placeholder: "public-anon-key",
+        obscured: true,
+    },
+    inviteLabel: {
+        type: ControlType.String,
+        title: "Invite Code Label",
+        defaultValue: "Invite Code",
+    },
+    submitLabel: {
+        type: ControlType.String,
+        title: "Submit Button",
+        defaultValue: "Validate Code",
+    },
+    background: {
+        type: ControlType.Color,
+        title: "Background",
+        defaultValue: "#FFFFFF",
+    },
+    textColor: {
+        type: ControlType.Color,
+        title: "Text Color",
+        defaultValue: "#000000",
+    },
+    font: {
+        type: ControlType.Font,
+        title: "Font",
+        controls: "extended",
+        defaultFontType: "sans-serif",
+        defaultValue: {
+            fontSize: "16px",
+            variant: "Medium",
+            letterSpacing: "-0.01em",
+            lineHeight: "1.3em",
+        },
+    },
+    borderRadius: {
+        type: ControlType.Number,
+        title: "Radius",
+        defaultValue: 8,
+        min: 0,
+        max: 32,
+    },
+    buttonFont: {
+        type: ControlType.Font,
+        title: "Button Font",
+        controls: "extended",
+        defaultFontType: "sans-serif",
+        defaultValue: {
+            fontSize: "16px",
+            variant: "Semibold",
+            letterSpacing: "-0.01em",
+            lineHeight: "1em",
+        },
+    },
+    hoverBgImage: {
+        type: ControlType.ResponsiveImage,
+        title: "Button Hover BG",
+    },
+    hoverText: {
+        type: ControlType.String,
+        title: "Button Hover Text",
+        defaultValue: "",
+        placeholder: "Enter hover text...",
+    },
+    theme: {
+        type: ControlType.Enum,
+        title: "Theme",
+        options: ["light", "dark"],
+        optionTitles: ["Light", "Dark"],
+        defaultValue: "light",
+        displaySegmentedControl: true,
+    },
+    lightBackground: {
+        type: ControlType.Color,
+        title: "Light BG",
+        defaultValue: "#FFFFFF",
+        hidden: ({ theme }) => theme !== "light",
+    },
+    lightTextColor: {
+        type: ControlType.Color,
+        title: "Light Text",
+        defaultValue: "#000000",
+        hidden: ({ theme }) => theme !== "light",
+    },
+    darkBackground: {
+        type: ControlType.Color,
+        title: "Dark BG",
+        defaultValue: "#181A1B",
+        hidden: ({ theme }) => theme !== "dark",
+    },
+    darkTextColor: {
+        type: ControlType.Color,
+        title: "Dark Text",
+        defaultValue: "#F5F5F5",
+        hidden: ({ theme }) => theme !== "dark",
+    },
+})
